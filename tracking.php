@@ -2,7 +2,7 @@
 
 //Tracking Number Updater
 //Sean Gillen / Anonymous Press
-//Last updated: 2016-12-20 21:00
+//Last updated: 2017-02-11 00:15
 
 $num_requests = 0;
 require_once('3dapi.php');
@@ -17,7 +17,7 @@ $SKUCol = 11;
 $qtyCol = 13;
 $dateCol = 10;
 
-$failsafe = true; //this will result in longer run times and more requests
+$failsafe = true; //this will result in longer run times and more requests, but everything seems to break without it
 $debug = false; //disables PUT and POST requests
 if(isset($argv[1]) && isset($argv[2]) && $argv[2] === "debug") $debug = true;
 
@@ -39,6 +39,7 @@ if(!isset($input)) $input = file_get_contents($inputFile);
 $input = str_replace("\r","\n",$input);
 $input = str_getcsv($input,"\n");
 foreach($input as $line=>&$row){
+	if($line === 0) continue;
 	
 	$row = str_getcsv($row);
 	if(count($row)!==$inputCols) continue;
@@ -54,7 +55,7 @@ foreach($input as $line=>&$row){
 
 	$order = get('Orders',array('invoicenumber'=>$invoicenum))[0];
 
-	if(preg_match('/^(.+)[Xx]([0-9]+)$/',$item,$matches)){ //debundle fulfillment data
+	if(preg_match('/^(.+)[Xx]([0-9]+)$/',$item,$matches)){ //debundle warehouse data
 		$item = $matches[1];
 		$qty *= $matches[2];
 	}
@@ -67,9 +68,16 @@ foreach($input as $line=>&$row){
 
 	foreach($order["OrderItemList"] as &$orderItem){
 		foreach($order["ShipmentList"] as $orderShipment){
-			if ($orderShipment["ShipmentID"] == $orderItem["ItemShipmentID"] && $orderShipment["ShipmentOrderStatus"] === $shippedOrderStatus && count($order["ShipmentList"])>1 && count($order["OrderItemList"])>1) continue 2; //if line has already been marked as shipped, do not process
+			if ($orderShipment["ShipmentID"] == $orderItem["ItemShipmentID"] 
+				&& (
+					$orderShipment["ShipmentOrderStatus"] === $shippedOrderStatus
+					|| $orderShipment["ShipmentTrackingCode"] !== ""
+				) && count($order["ShipmentList"])>1 && count($order["OrderItemList"])>1
+			) {
+				continue 2; //if line has already been marked as shipped, do not process
+			}
 		}
-		if($orderItem["ItemID"] === $item && $remainingQty > 0){ //If SKU matches and there are some left that have been shipped
+		if(strtoupper($orderItem["ItemID"]) === strtoupper($item) && $remainingQty > 0){ //If SKU matches and there are some left to mark as shipped
 			if(intval($orderItem["ItemQuantity"]) <= intval($remainingQty)){ //If entire line has been shipped
 				$remainingQty -= intval($orderItem["ItemQuantity"]);
 				$orderItem["ItemShipmentID"] = &$shipmentID;
@@ -87,7 +95,7 @@ foreach($input as $line=>&$row){
 				$remainingQty = 0;
 			}
 		}
-		else{ //If line has not been shipped (SKU does not match or none left that have been shipped)
+		else{ //If line has not been shipped (SKU does not match or none left to mark as shipped)
 			$allMatch = false;
 			$orderItem["ItemShipmentID"] = &$newShipmentID; //move to new shipment
 			$newShipmentID = true; //new shipment is needed
@@ -124,40 +132,57 @@ foreach($input as $line=>&$row){
 			}
 		}
 	}
-	if($newShipmentID===true){ //Create new shipment if needed
-		$newShipment = end($order["ShipmentList"]); //Duplicate last shipment
-		$newShipment["ShipmentID"] = null; //next available shipment id
-		$newShipment["ShipmentLastUpdate"] = date('c');
-		$newShipment["ShipmentOrderStatus"] = $newOrderStatus;
-		$newShipment["ShipmentWeight"] = 0; //Shipment weights become individually meaningless, but we need to sum to stay the same or it starts recalculating shipping for some reason
-		$newShipment["ShipmentCost"] = 0; //same as weight
-		$newShipment["ShipmentNumber"]++;
-		foreach(array("ShipmentShippedDate","ShipmentTrackingCode","ShipmentTax","ShipmentWeight") as $field){
-			$newShipment[$field] = "";
+	while($newShipmentID===true){ //Find next available shipment ID
+		foreach($order["ShipmentList"] as $shipment){ //Check existing shipments for unshipped shipments that will not be marked shipped
+			echo "Shipment: ".$shipment["ShipmentID"]."\n";
+			if($shipment["ShipmentOrderStatus"] === $shippedOrderStatus || $shipment["ShipmentTrackingCode"] !== "") {
+				echo "continue\n";
+				continue; //shipment is shipped
+			}
+			echo "\$shipmentID = $shipmentID\n";
+			if(isset($shipmentID) && $shipmentID!=0 && $shipment["ShipmentID"] != $shipmentID) { //Shipment will not be marked shipped
+				echo "use shipment\n";
+				$newShipmentID = $shipment["ShipmentID"]; //use this existing shipment as the "new shipment"
+				break; //stop looking
+			}
+			//Shipment is unshipped but will be marked shipped: keep looking (continue)
 		}
-		$newShipmentID = put("Orders/".$order["OrderID"]."/Shipments",array('orderid'=>$order["OrderID"]),$newShipment,true);
-		if(isset($newShipmentID[1])){
-			//echo "using shipment id ".$newShipmentID[1];
-			$shipmentID = $newShipmentID[0]["Value"]; //If the id of the warehouse shipment changed
+		if($newShipmentID===true){ //If the above method failed to find an empty shipment that will not be filled to use as the new shipment, create a new shipment.
+			//Create new shipment
+			$newShipment = end($order["ShipmentList"]); //Duplicate last shipment
+			$newShipment["ShipmentID"] = null; //next available shipment id
+			$newShipment["ShipmentLastUpdate"] = date('c');
+			$newShipment["ShipmentOrderStatus"] = $newOrderStatus;
+			$newShipment["ShipmentWeight"] = 0; //Shipment weights become individually meaningless, but we need the sum to stay the same or 3dcart starts recalculating shipping for some reason
+			$newShipment["ShipmentCost"] = 0; //same as weight
+			$newShipment["ShipmentNumber"]++;
+			foreach(array("ShipmentShippedDate","ShipmentTrackingCode","ShipmentTax","ShipmentWeight") as $field){
+				$newShipment[$field] = "";
+			}
+			$newShipmentID = put("Orders/".$order["OrderID"]."/Shipments",array('orderid'=>$order["OrderID"]),$newShipment,true);
+			if(isset($newShipmentID[1])){
+				//echo "using shipment id ".$newShipmentID[1];
+				$shipmentID = $newShipmentID[0]["Value"]; //If the id of the warehouse shipment changed
+			}
+			$newShipmentID = $newShipmentID[count($newShipmentID)-1]["Value"];
+			if(!isset($shipmentID)||$shipmentID==0){
+				$shipmentID = $newShipmentID; //If this shipment is the warehouse shipment
+				//echo "using new shipment ".$shipmentID;
+			}
+			if($shipmentID==$newShipmentID&&!$allMatch) //If another new shipment is required
+				$newShipmentID = true; //loop back to beginning and look for unshipped shipments that will not be marked as shipped
 		}
-		$newShipmentID = $newShipmentID[count($newShipmentID)-1]["Value"];
-		while(!isset($shipmentID)||$shipmentID==0){
-			$shipmentID = $newShipmentID; //If this shipment is the warehouse shipment
-			//echo "using new shipment ".$shipmentID;
-		}
-		if($shipmentID==$newShipmentID&&!$allMatch) //If two new shipments are required
-			$newShipmentID = end(put("Orders/".$order["OrderID"]."/Shipments",array('orderid'=>$order["OrderID"]),$newShipment,true))["Value"];
 	}
 	$shipmentData = array(
 		'ShipmentTrackingCode'=>$tracking,
 		'ShipmentLastUpdate'=>date('c'),
-		'ShipmentOrderStatus'=>$shippedOrderStatus,
 		'ShipmentShippedDate'=>$shipDate,
 		'ShipmentBoxes'=>1
 	);
 	
 	put("Orders/".$order["OrderID"]."/Shipments/".$shipmentID,array('orderid'=>$order["OrderID"],'shipmentid'=>$shipmentID),$shipmentData); //Update shipment in 3dcart
-
+	put("Orders/".$order["OrderID"]."/Shipments/".$shipmentID,array('orderid'=>$order["OrderID"],'shipmentid'=>$shipmentID),array('ShipmentOrderStatus'=>$shippedOrderStatus)); //Separate this out to work around a 3dcart bug in which the first shipment within an Unpaid order cannot be set to Shipped w/o first being set to New
+	
 	//var_dump($order); //debug code
 	
 	//put item list
