@@ -2,7 +2,7 @@
 
 //Tracking Number Updater
 //Sean Gillen / Anonymous Press
-//Last updated: 2017-02-11 00:15
+//Last updated: 2018-07-25 13:08
 
 $num_requests = 0;
 require_once('3dapi.php');
@@ -40,10 +40,10 @@ $input = str_replace("\r","\n",$input);
 $input = str_getcsv($input,"\n");
 foreach($input as $line=>&$row){
 	if($line === 0) continue;
-	
+
 	$row = str_getcsv($row);
 	if(count($row)!==$inputCols) continue;
-	
+
 	$invoicenum = $row[$invNumCol];
 	$tracking = $row[$trackingCol];
 	$item = $row[$SKUCol];
@@ -63,12 +63,12 @@ foreach($input as $line=>&$row){
 	$shipmentID; $newShipmentID = false;
 	$allMatch = true;
 	$remainingQty = (int) $qty;
-	
+
 	//var_dump($order);
 
 	foreach($order["OrderItemList"] as &$orderItem){
 		foreach($order["ShipmentList"] as $orderShipment){
-			if ($orderShipment["ShipmentID"] == $orderItem["ItemShipmentID"] 
+			if ($orderShipment["ShipmentID"] == $orderItem["ItemShipmentID"]
 				&& (
 					$orderShipment["ShipmentOrderStatus"] === $shippedOrderStatus
 					|| $orderShipment["ShipmentTrackingCode"] !== ""
@@ -77,7 +77,7 @@ foreach($input as $line=>&$row){
 				continue 2; //if line has already been marked as shipped, do not process
 			}
 		}
-		if(strtoupper($orderItem["ItemID"]) === strtoupper($item) && $remainingQty > 0){ //If SKU matches and there are some left to mark as shipped
+		if(trim(strtoupper($orderItem["ItemID"])) === trim(strtoupper($item)) && $remainingQty > 0){ //If SKU matches and there are some left to mark as shipped
 			if(intval($orderItem["ItemQuantity"]) <= intval($remainingQty)){ //If entire line has been shipped
 				$remainingQty -= intval($orderItem["ItemQuantity"]);
 				$orderItem["ItemShipmentID"] = &$shipmentID;
@@ -101,7 +101,7 @@ foreach($input as $line=>&$row){
 			$newShipmentID = true; //new shipment is needed
 		}
 	} unset($orderItem);
-	
+
 	foreach($order["ShipmentList"] as &$shipment){ //3dcart sometimes breaks itself on this for some reason
 		if(!isset($shipment["ShipmentPhone"])||$shipment["ShipmentPhone"]==="") $shipment["ShipmentPhone"] = "0000000000";
 	} unset($shipment);
@@ -179,22 +179,22 @@ foreach($input as $line=>&$row){
 		'ShipmentShippedDate'=>$shipDate,
 		'ShipmentBoxes'=>1
 	);
-	
+
 	put("Orders/".$order["OrderID"]."/Shipments/".$shipmentID,array('orderid'=>$order["OrderID"],'shipmentid'=>$shipmentID),$shipmentData); //Update shipment in 3dcart
 	put("Orders/".$order["OrderID"]."/Shipments/".$shipmentID,array('orderid'=>$order["OrderID"],'shipmentid'=>$shipmentID),array('ShipmentOrderStatus'=>$shippedOrderStatus)); //Separate this out to work around a 3dcart bug in which the first shipment within an Unpaid order cannot be set to Shipped w/o first being set to New
-	
+
 	//var_dump($order); //debug code
-	
+
 	//put item list
 	if(!isset($failsafe)||$failsafe){
 		foreach($order["OrderItemList"] as &$orderItem){
 			if(!isset($orderItem["ItemIndexID"])) //If item is new
-				$orderItem["ItemIndexID"] = end(put("Orders/".$order["OrderID"]."/Items",array('orderid'=>$order["OrderID"]),$orderItem,true))["Value"]; 
+				$orderItem["ItemIndexID"] = end(put("Orders/".$order["OrderID"]."/Items",array('orderid'=>$order["OrderID"]),$orderItem,true))["Value"];
 			else put("Orders/".$order["OrderID"]."/Items/".$orderItem["ItemIndexID"],array('orderid'=>$order["OrderID"],'itemindexid'=>$orderItem["ItemIndexID"]),$orderItem); //If item is updated or unchanged
 		} unset($orderItem);
 	}
 	else put("Orders/".$order["OrderID"]."/Items",array('orderid'=>$order["OrderID"]),$order["OrderItemList"]);
-	
+
 	//get updated order details
 	$expectedTotal = $order["OrderAmount"];
 	$order = get('Orders',array('invoicenumber'=>$invoicenum))[0];
@@ -202,7 +202,7 @@ foreach($input as $line=>&$row){
 		echo "ERROR: Order amount has changed from \$".number_format($expectedTotal)." to \$".number_format($order["OrderAmount"])."\r\n\r\n";
 		$errors++;
 	}
-	
+
 	$allShipped = true;
 	$emptyShipments = false;
 	//Remove empty shipments
@@ -222,19 +222,19 @@ foreach($input as $line=>&$row){
 			break; //no need to continue checking
 		}
 	}
-	
+
 	//if($emptyShipments) var_dump(put("Orders/".$order["OrderID"]."/Shipments",array('orderid'=>$order["OrderID"]),$order["ShipmentList"])); //Remove empty shipments in 3dcart - doesn't work for some reason
-	
+
 	if($order["OrderStatusID"] !== $allShipped?$shippedOrderStatus:$holdOrderStatus) put("Orders/".$order["OrderID"],array('orderid'=>$order["OrderID"]),array("OrderStatusID"=>$allShipped?$shippedOrderStatus:$holdOrderStatus)); //Update order status in 3dcart to reflect $allShipped
 
 	if(php_sapi_name()!='cli') echo "\t".trim(str_replace("\n","\n\t",ob_get_clean()))."\r\n\r\n";
-	
+
 	unset($shipmentID, $newShipmentID);
 }
 
 if(!$cli) $log = ob_get_clean();
 else echo "\r\n--------------------------\r\n";
-	
+
 $runtime = number_format(microtime(true) - $startTime,3);
 $printr=print_r($responses,true);
 $memory=array(memory_get_peak_usage(),return_bytes(ini_get('memory_limit')));
