@@ -1,14 +1,14 @@
 <?php
 
 // This script runs the tracking number updater on all files on the warehouse server, then deletes the files from the server
-// Last updated: 2016-11-10 22:03
+// Last updated: 2018-07-25 12:55
 
 $ftp_host = '';
 $ftp_user = '';
 $ftp_pass = '';
 $ftp_path = 'outgoing/';
 
-set_time_limit(600);
+set_time_limit(1200);
 
 if(!$ftp = ftp_connect($ftp_host)) die(var_dump(error_get_last()));
 if(!ftp_login($ftp,$ftp_user,$ftp_pass)) die(var_dump(error_get_last()));
@@ -23,6 +23,7 @@ foreach($filenames as $file){
 	$input = ob_get_clean();
 	//var_dump($input);
 	file_put_contents('tracking/'.date('Y-m-d HiO').'.csv',$input); //save input data
+	var_dump($input); //print input data
 	include 'tracking.php';
 	if(!ftp_delete($ftp,$file)) var_dump(error_get_last());
 }
