@@ -12,8 +12,7 @@ $mailto = ""; //production
 $usps_user = "";
 
 //Get list of new orders from 3dcart.
-
-$newOrders = get('Orders',array('orderstatus'=>$newOrderStatus));
+$newOrders = getOrders($newOrderStatus);
 
 function failureEmail($ordernum, $message){
 	global $mailto;

@@ -1,10 +1,10 @@
 <?php
 
 //Sean Gillen / Anonymous Press
-//Last updated: 2017-02-12
+//Last updated: 2018-11-13
 
 $version = 1;
-$secureURL = 'anonpress.net';
+$secureURL = '';
 $privateKey = '';
 $token = '';
 
@@ -60,6 +60,16 @@ function get($url,$params){
 	if($verbose) outputResponse($response,$runtime);
 
 	return $response===false?false:json_decode($response,true);
+}
+
+function getOrders($status) {
+	$orders = array();
+	$limit = 10;
+	do {
+		$ordersPage = get('Orders', array('orderstatus'=>$status, 'limit'=>$limit, 'offset'=>(count($orders) + 1)));
+		$orders = array_merge($orders, $ordersPage);
+	} while (count($ordersPage) == $limit);
+	return $orders;
 }
 
 function put($url,$urlparams,$bodyparams,$post = false){
