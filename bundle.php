@@ -1,14 +1,12 @@
 <?php
 
 //Sean Gillen / Anonymous Press
-//Last updated: 2017-02-10 22:00
 
 $debug_bundle = false; //Set to TRUE to prevent output file FTP upload and deletion -false for production
 
-$ftp_host = '';
-$ftp_user = '';
-$ftp_pass = '';
-$ftp_path = 'incoming/';
+require_once('config.php');
+
+$ftp_path = $incoming_ftp_path;
 
 $delete_input_file = true;
 $save_input_file = true; //copy to processed/
@@ -29,7 +27,7 @@ if(!$debug_bundle){
 	ftp_pasv($ftp,true);
 	
 	if(ftp_put($ftp,$ftp_path.$out,$path.$out,FTP_ASCII)) { //If file upload successful
-		echo "$out uploaded to fulfillment.";
+		echo "$out uploaded to fulfillment server.";
 		
 		copy($path.$out,'uploaded/'.$out);
 		if($save_input_file) copy($path.$in,'processed/'.$out);

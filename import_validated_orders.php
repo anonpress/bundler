@@ -4,7 +4,6 @@
 //Header:
 //OrderNumber,ShipMethod,Comments,FirstName,LastName,Company,Address1,Address2,City,State,Zip,Phone,Email,Coupon,itemid,itemname,numitems,unitprice,weight,unitcost,itemamount
 //Sean Gillen / Anonymous Press
-//Last updated: 2018-11-13
 
 $filename = "input_".time().".csv";
 $csv = fopen($filename,"x"); //Create and open $filename

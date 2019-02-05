@@ -1,7 +1,6 @@
 <?php
 
 //Sean Gillen / Anonymous Press
-//Last updated: 2017-02-28
 
 if(isset($argv[1])) $in=$argv[1]; //For testing.
 
@@ -12,10 +11,8 @@ if(!isset($out)) $out = 'incomingorders.csv';
 
 echo "Input file: $in\r\n";
 
-$IgnoreSKUs = array(); //Lines containing these SKUs will be removed
+require_once('config.php');
 
-$BundleSKUs = array(						//Lines containing these SKUs will be bundled
-);
 $RemoveColumns = array('weight','unitprice','oi.weight','unitcost','itemamount','itemname','itemShipCost');
 											//All other SKUs will be passed through without modification
 

@@ -1,13 +1,10 @@
 <?php
 
 //Sean Gillen / Anonymous Press
-//Last updated: 2018-11-13
+
+require_once('config.php');
 
 $version = 1;
-$secureURL = '';
-$privateKey = '';
-$token = '';
-
 $apiBaseURL = "https://apirest.3dcart.com/3dCartWebAPI/v$version/";
 
 $newOrderStatus = 1;

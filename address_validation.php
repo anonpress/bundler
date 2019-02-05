@@ -3,13 +3,8 @@
 //Address validation script
 //Check 3dcart for new orders that have not been validated, and validate said orders
 //Sean Gillen / Anonymous Press
-//Last updated: 2017-02-12
 
 require_once('3dapi.php');
-$mailto = ""; //production
-//$mailto = ""; //testing
-
-$usps_user = "";
 
 //Get list of new orders from 3dcart.
 $newOrders = getOrders($newOrderStatus);

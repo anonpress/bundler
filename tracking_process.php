@@ -3,10 +3,8 @@
 // This script runs the tracking number updater on all files on the warehouse server, then deletes the files from the server
 // Last updated: 2018-07-25 12:55
 
-$ftp_host = '';
-$ftp_user = '';
-$ftp_pass = '';
-$ftp_path = 'outgoing/';
+require_once('config.php');
+$ftp_path = $outgoing_ftp_path;
 
 set_time_limit(1200);
 

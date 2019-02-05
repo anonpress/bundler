@@ -10,8 +10,6 @@ $verbose = true;
 
 echo "Marking transmitted orders as Hold.\r\n";
 
-$DisregardSKUs = array();
-
 if(isset($argv[1]) && !function_exists("removecol")) include('bundler.php'); //run from command line for testing
 
 if(!isset($in)){
@@ -35,7 +33,7 @@ foreach($orders as $invoicenum){
 			if(array_search($orderItem["ItemID"],$IgnoreSKUs) !== FALSE && array_search($orderItem["ItemID"],$DisregardSKUs) === FALSE)
 				foreach($order["ShipmentList"] as $shipment)
 					if($shipment["ShipmentID"] === $orderItem["ItemShipmentID"] && $shipment["ShipmentOrderStatus"] !== $shippedOrderStatus)
-						continue 3; //Skip orders with unshipped non-warepak items
+						continue 3; //Skip orders with unshipped non-warehouse items
 		put('Orders/'.$order["OrderID"],array('orderid'=>$order["OrderID"]),array("OrderStatusID"=>$holdOrderStatus));
 	}
 	else echo "No order found for invoice $invoicenum.\r\n";
