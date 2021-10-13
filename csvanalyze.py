@@ -12,14 +12,18 @@ def in_carton(v):
 	else:
 		return int(split[2])
 
-year_ago = datetime.now(timezone.utc) - timedelta(days=365)
-print("Orders since " + year_ago.strftime("%m/%d/%y") + ":")
+# start_date = datetime.strptime('2020-10-12 0000-0500', '%Y-%m-%d %H%M%z')
+# end_date = datetime.strptime('2021-10-12 2359-0500', '%Y-%m-%d %H%M%z')
+
+start_date = datetime.now(timezone.utc) - timedelta(days=366)
+end_date = datetime.now(timezone.utc) - timedelta(days=1)
+print("Orders between " + start_date.strftime("%m/%d/%y") + " and " + end_date.strftime("%m/%d/%y"))
 
 directory = os.fsencode('uploaded')
 for uploaded_file in os.listdir(directory):
 	filename = os.fsdecode(uploaded_file)
 	uploaded = datetime.strptime(filename, '%Y-%m-%d %H%M%z.csv')
-	if(uploaded < year_ago):
+	if(not(start_date <= uploaded <= end_date)):
 		continue
 	try:
 		with open('uploaded/' + filename, newline='') as f:
