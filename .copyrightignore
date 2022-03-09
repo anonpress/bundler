@@ -20,6 +20,7 @@ Pipfile.lock
 
 # Files that don't support comments
 .python-version
+.php-version
 LICENSE
 
 # Documentation
