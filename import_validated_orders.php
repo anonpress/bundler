@@ -1,9 +1,24 @@
 <?php
+/*
+ * Copyright 2016 The Anonymous Press, Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 //This script creates a csv input file for the bundler from orders that have been marked as having validated addresses in 3dcart, and stores the filename in $in
 //Header:
 //OrderNumber,ShipMethod,Comments,FirstName,LastName,Company,Address1,Address2,City,State,Zip,Phone,Email,Coupon,itemid,itemname,numitems,unitprice,weight,unitcost,itemamount
-//Sean Gillen / Anonymous Press
 
 $filename = "input_".time().".csv";
 $csv = fopen($filename,"x"); //Create and open $filename
