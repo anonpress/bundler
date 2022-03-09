@@ -12,4 +12,18 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-2bc56da77d2131192263501558e59677a12eebfc
+name: Check copyright headers
+on:
+  push:
+  pull_request:
+jobs:
+  copyright:
+    name: All files added by Sean contain a copyright header
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+        with:
+          fetch-depth: 0
+      - name: Check for copyright headers
+        run: ./copyright.sh

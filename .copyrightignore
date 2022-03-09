@@ -12,4 +12,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-2bc56da77d2131192263501558e59677a12eebfc
+# Generated files
+Pipfile
+Pipfile.lock
+/.idea
+*.iml
+
+# Files that don't support comments
+.python-version
+LICENSE
+
+# Documentation
+*.md
