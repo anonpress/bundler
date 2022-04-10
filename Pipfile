@@ -5,6 +5,8 @@ name = "pypi"
 
 [packages]
 pytest = "*"
+requests = "*"
+requests-mock = "*"
 
 [dev-packages]
 
