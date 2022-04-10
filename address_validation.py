@@ -14,22 +14,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import xml.etree.ElementTree as et
-from typing import NamedTuple, List, Optional
+from typing import List, Optional
 from xml.sax.saxutils import escape
 
 import requests
 
-
-class Address(NamedTuple):
-    address1: str
-    address2: str
-    city: str
-    state: str
-    zip: str
-
-    def __eq__(self, other):
-        return self.address1 == other.address1 and self.address2 == other.address2 and \
-               self.city == other.city and self.state == other.state and self.zip == other.zip
+from address import Address
+from config import Config
+from opencart_db import Database
 
 
 class Validator:
@@ -86,3 +78,13 @@ class Validator:
             except KeyError:
                 results.insert(index, None)
         return results
+
+
+def main():
+    db = Database(Config.db_host, Config.db_user, Config.db_pass, Config.db_name)
+    # Get a list of orders with status "Pending"
+    # Update the orders to reflect the validated address
+
+
+if __name__ == "__main__":
+    main()
