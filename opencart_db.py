@@ -40,6 +40,7 @@ class Database:
     STATUS_PENDING = 1
     STATUS_PROCESSED = 15
     STATUS_SHIPPED = 3
+    STATUS_COMPLETE = 5
     STATUS_VALIDATED = 17
     STATUS_FAILED = 18
     COUNTRY_ID_US = 223
@@ -54,6 +55,10 @@ class Database:
             SELECT zone_id, name FROM oc_zone WHERE country_id=%s AND code=%s
             """
 
+    SELECT_CONTENTS_QUERY = """
+            SELECT model, quantity FROM oc_order_product WHERE order_id=%s
+            """
+
     def get_orders_with_status(self, status: int) -> List[dict]:
         self.cursor.execute(self.SELECT_ORDER_QUERY, (status,))
         return self.cursor.fetchall()
@@ -61,6 +66,10 @@ class Database:
     def get_code_for_state(self, abbr: str) -> dict:
         self.cursor.execute(self.SELECT_STATE_QUERY, (Database.COUNTRY_ID_US, abbr))
         return self.cursor.fetchone()
+
+    def get_order_contents(self, order_id: int) -> dict:
+        self.cursor.execute(self.SELECT_CONTENTS_QUERY, (order_id,))
+        return {item['model']: item['quantity'] for item in self.cursor.fetchall()}
 
     @staticmethod
     def get_order_address(order: dict) -> Address:

@@ -36,9 +36,13 @@ class Validator:
         :param addresses: A list of customer-provided addresses.
         :return: A list of validated address, or None for errors.
         """
-        xml = self.__build_xml(addresses)
-        res = self.__request(xml)
-        return self.__parse_response(res)
+        results = []
+        # USPS API can only take 5 addresses at a time
+        for i in range(0, len(addresses), 5):
+            xml = self.__build_xml(addresses)
+            res = self.__request(xml)
+            results += self.__parse_response(res)
+        return results
 
     def __build_xml(self, addresses: List[Address]) -> str:
         root = et.Element('AddressValidateRequest')
@@ -82,8 +86,15 @@ class Validator:
 
 def main():
     db = Database(Config.db_host, Config.db_user, Config.db_pass, Config.db_name)
-    # Get a list of orders with status "Pending"
-    # Update the orders to reflect the validated address
+    v = Validator(Config.usps_user)
+    orders = db.get_orders_with_status(db.STATUS_PENDING)
+    addresses = v.validate([db.get_order_address(order) for order in orders])
+    for order, address in zip(orders, addresses):
+        if address is not None:
+            db.set_order_address(order, address)
+        order = db.set_order_status(order,
+                                    db.STATUS_FAILED if address is None else db.STATUS_VALIDATED)
+        db.update_order(order)
 
 
 if __name__ == "__main__":

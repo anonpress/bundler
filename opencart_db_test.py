@@ -126,6 +126,20 @@ class TestOpencartDb(unittest.TestCase):
                          orders_after[1])
         self.db.get_code_for_state.assert_called_once_with('WA')
 
+    def test_get_order_contents(self):
+        self.mock.fetchall = MagicMock(return_value=[
+            {'model': 'WO', 'quantity': 8},
+            {'model': 'MI', 'quantity': 117},
+            {'model': 'e-AA', 'quantity': 1},
+        ])
+        self.assertEqual(self.db.get_order_contents(42), {
+            'MI':   117,
+            'WO':   8,
+            'e-AA': 1,
+        })
+        self.mock.execute.assert_called_once_with(QueryMatcher(Database.SELECT_CONTENTS_QUERY),
+                                                  (42,))
+
     def test_set_order_status(self):
         result = Database.set_order_status(orders_before[0], Database.STATUS_PROCESSED)
         expected = orders_before[0]
