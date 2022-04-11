@@ -21,7 +21,7 @@ import requests
 
 from address import Address
 from config import Config
-from opencart_db import Database
+from opencart_db import Database, OrderStatus
 
 
 class Validator:
@@ -87,13 +87,14 @@ class Validator:
 def main():
     db = Database(Config.db_host, Config.db_user, Config.db_pass, Config.db_name)
     v = Validator(Config.usps_user)
-    orders = db.get_orders_with_status(db.STATUS_PENDING)
+    orders = db.get_orders_with_status(OrderStatus.PENDING)
     addresses = v.validate([db.get_order_address(order) for order in orders])
     for order, address in zip(orders, addresses):
         if address is not None:
             db.set_order_address(order, address)
         order = db.set_order_status(order,
-                                    db.STATUS_FAILED if address is None else db.STATUS_VALIDATED)
+                                    OrderStatus.FAILED if address is None
+                                    else OrderStatus.VALIDATED)
         db.update_order(order)
 
 

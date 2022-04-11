@@ -12,11 +12,25 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-from typing import List, Optional
+from enum import IntEnum
+from typing import List, Dict, Union, Optional
 
 import mysql.connector
 
 from address import Address
+
+OrderInfo = Dict[str, Union[str, int]]
+ZoneInfo = Dict[str, Union[str, int]]  # keys are zone_id and name
+Items = Dict[str, int]  # sku -> qty
+
+
+class OrderStatus(IntEnum):
+    PENDING = 1
+    PROCESSED = 15
+    SHIPPED = 3
+    COMPLETE = 5
+    VALIDATED = 17
+    FAILED = 18
 
 
 class Database:
@@ -37,42 +51,44 @@ class Database:
         except ReferenceError:
             pass
 
-    STATUS_PENDING = 1
-    STATUS_PROCESSED = 15
-    STATUS_SHIPPED = 3
-    STATUS_COMPLETE = 5
-    STATUS_VALIDATED = 17
-    STATUS_FAILED = 18
     COUNTRY_ID_US = 223
 
     SELECT_ORDER_QUERY = """
-            SELECT oc_order.*, oc_zone.code AS shipping_state FROM oc_order 
-            LEFT JOIN oc_zone ON oc_order.shipping_zone_id = oc_zone.zone_id 
-            WHERE order_status_id=%s
-            """
+        SELECT * FROM oc_order WHERE order_id=%s
+    """
+
+    SELECT_ORDERS_QUERY = """
+        SELECT oc_order.*, oc_zone.code AS shipping_state FROM oc_order 
+        LEFT JOIN oc_zone ON oc_order.shipping_zone_id = oc_zone.zone_id 
+        WHERE order_status_id=%s
+    """
 
     SELECT_STATE_QUERY = """
-            SELECT zone_id, name FROM oc_zone WHERE country_id=%s AND code=%s
-            """
+        SELECT zone_id, name FROM oc_zone WHERE country_id=%s AND code=%s
+    """
 
     SELECT_CONTENTS_QUERY = """
-            SELECT model, quantity FROM oc_order_product WHERE order_id=%s
-            """
+        SELECT model, quantity FROM oc_order_product WHERE order_id=%s
+    """
 
-    def get_orders_with_status(self, status: int) -> List[dict]:
-        self.cursor.execute(self.SELECT_ORDER_QUERY, (status,))
+    def get_order(self, order_id: int) -> Optional[OrderInfo]:
+        self.cursor.execute(self.SELECT_ORDER_QUERY, (order_id,))
+        return self.cursor.fetchone()
+
+    def get_orders_with_status(self, status: OrderStatus) -> List[OrderInfo]:
+        self.cursor.execute(self.SELECT_ORDERS_QUERY, (status,))
         return self.cursor.fetchall()
 
-    def get_code_for_state(self, abbr: str) -> dict:
+    def get_code_for_state(self, abbr: str) -> Optional[ZoneInfo]:
         self.cursor.execute(self.SELECT_STATE_QUERY, (Database.COUNTRY_ID_US, abbr))
         return self.cursor.fetchone()
 
-    def get_order_contents(self, order_id: int) -> dict:
+    def get_order_contents(self, order_id: int) -> Items:
         self.cursor.execute(self.SELECT_CONTENTS_QUERY, (order_id,))
         return {item['model']: item['quantity'] for item in self.cursor.fetchall()}
 
     @staticmethod
-    def get_order_address(order: dict) -> Address:
+    def get_order_address(order: OrderInfo) -> Address:
         return Address(
             order['shipping_address_1'],
             order['shipping_address_2'],
@@ -81,7 +97,7 @@ class Database:
             order['shipping_postcode']
         )
 
-    def set_order_address(self, order: dict, address: Optional[Address]) -> dict:
+    def set_order_address(self, order: OrderInfo, address: Address) -> OrderInfo:
         order['shipping_address_1'] = address.address1
         order['shipping_address_2'] = address.address2
         order['shipping_city'] = address.city
@@ -94,11 +110,11 @@ class Database:
         return order
 
     @staticmethod
-    def set_order_status(order: dict, status: int) -> dict:
+    def set_order_status(order: OrderInfo, status: OrderStatus) -> OrderInfo:
         order['order_status_id'] = status
         return order
 
-    def update_order(self, order: dict) -> None:
+    def update_order(self, order: OrderInfo) -> None:
         self.cursor.execute(
             f"UPDATE oc_order SET {', '.join(f'`{k}`=%s' for k in order if k != 'shipping_state')}"
             ' WHERE order_id=%s',

@@ -17,7 +17,7 @@ import unittest
 from unittest.mock import patch, MagicMock
 
 from address_validation import Address
-from opencart_db import Database
+from opencart_db import Database, OrderStatus
 
 address_before = Address('Address 2-1', 'Address 2-2', 'City 2', 'GA', '10101')
 
@@ -26,7 +26,7 @@ address_after = Address('Address 2-1', '', 'New City', 'WA', '10101-2345')
 orders_before = [
     {
         'order_id':           1,
-        'order_status_id':    Database.STATUS_PENDING,
+        'order_status_id':    OrderStatus.PENDING,
         'shipping_address_1': 'Address 1-1',
         'shipping_address_2': 'Address 1-2',
         'shipping_city':      'City 1',
@@ -37,7 +37,7 @@ orders_before = [
     },
     {
         'order_id':           2,
-        'order_status_id':    Database.STATUS_PENDING,
+        'order_status_id':    OrderStatus.PENDING,
         'shipping_address_1': 'Address 2-1',
         'shipping_address_2': 'Address 2-2',
         'shipping_city':      'City 2',
@@ -51,7 +51,7 @@ orders_before = [
 orders_after = [
     {
         'order_id':           1,
-        'order_status_id':    Database.STATUS_PENDING,
+        'order_status_id':    OrderStatus.PENDING,
         'shipping_address_1': 'Address 1-1',
         'shipping_address_2': 'Address 1-2',
         'shipping_city':      'City 1',
@@ -62,7 +62,7 @@ orders_after = [
     },
     {
         'order_id':           2,
-        'order_status_id':    Database.STATUS_PENDING,
+        'order_status_id':    OrderStatus.PENDING,
         'shipping_address_1': 'Address 2-1',
         'shipping_address_2': '',
         'shipping_city':      'New City',
@@ -94,16 +94,29 @@ class TestOpencartDb(unittest.TestCase):
         mock_cnx.cursor.assert_called_once_with(dictionary=True)
         self.mock.execute = MagicMock()
 
+    def test_get_order(self):
+        self.mock.fetchone = MagicMock(return_value=orders_before[1])
+        self.assertEqual(self.db.get_order(2), orders_before[1])
+        self.mock.execute.assert_called_once_with(QueryMatcher(Database.SELECT_ORDER_QUERY),
+                                                  (2,))
+
+    def test_get_missing_order(self):
+        self.mock.fetchone = MagicMock(return_value=None)
+        self.assertIsNone(self.db.get_order(2))
+        self.mock.execute.assert_called_once_with(QueryMatcher(Database.SELECT_ORDER_QUERY),
+                                                  (2,))
+
     def test_get_orders_with_status(self):
         self.mock.fetchall = MagicMock(return_value=orders_before)
-        self.assertEqual(self.db.get_orders_with_status(Database.STATUS_PENDING), orders_before)
-        self.mock.execute.assert_called_once_with(QueryMatcher(Database.SELECT_ORDER_QUERY),
-                                                  (Database.STATUS_PENDING,))
+        self.assertEqual(self.db.get_orders_with_status(OrderStatus.PENDING), orders_before)
+        self.mock.execute.assert_called_once_with(QueryMatcher(Database.SELECT_ORDERS_QUERY),
+                                                  (OrderStatus.PENDING,))
 
     def test_get_orders_with_status_no_results(self):
         self.mock.fetchall = MagicMock(return_value=[])
-        self.assertEqual(self.db.get_orders_with_status(-1), [])
-        self.mock.execute.assert_called_once_with(QueryMatcher(Database.SELECT_ORDER_QUERY), (-1,))
+        self.assertEqual(self.db.get_orders_with_status(OrderStatus.PENDING), [])
+        self.mock.execute.assert_called_once_with(QueryMatcher(Database.SELECT_ORDERS_QUERY),
+                                                  (OrderStatus.PENDING,))
 
     def test_get_code_for_state(self):
         self.mock.fetchone = MagicMock(return_value=washington)
@@ -141,9 +154,9 @@ class TestOpencartDb(unittest.TestCase):
                                                   (42,))
 
     def test_set_order_status(self):
-        result = Database.set_order_status(orders_before[0], Database.STATUS_PROCESSED)
+        result = Database.set_order_status(orders_before[0], OrderStatus.PROCESSED)
         expected = orders_before[0]
-        expected['order_status_id'] = Database.STATUS_PROCESSED
+        expected['order_status_id'] = OrderStatus.PROCESSED
         self.assertEqual(result, expected)
 
     def test_update_order(self):

@@ -13,14 +13,16 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import csv
+import ftplib
 import os.path
 import re
-import ftplib
 from datetime import datetime
-from typing import List
+from typing import List, Dict
 
 from config import Config
-from opencart_db import Database
+from opencart_db import Database, OrderStatus, OrderInfo, Items
+
+CsvRow = Dict[str, str]
 
 
 class Bundler:
@@ -36,10 +38,10 @@ class Bundler:
     def __del__(self):
         self.ftp.quit()
 
-    def get_orders(self) -> List[dict]:
-        return self.db.get_orders_with_status(self.db.STATUS_VALIDATED)
+    def get_orders(self) -> List[OrderInfo]:
+        return self.db.get_orders_with_status(OrderStatus.VALIDATED)
 
-    def bundle_order_items(self, items: dict) -> dict:
+    def bundle_order_items(self, items: Items) -> Items:
         bundled = {}
         for sku, qty in items.items():
             for bundle_qty, bundle_sku in self.bundles.get(sku, {}).items():
@@ -51,10 +53,10 @@ class Bundler:
                 bundled[sku] = qty
         return bundled
 
-    def map_order(self, order: dict) -> dict:
+    def __map_order(self, order: OrderInfo) -> CsvRow:
         return {
             'OrderNumber': order['order_id'],
-            'ShipMethod':  self.map_ship(order['shipping_method']),
+            'ShipMethod':  self.__map_ship(order['shipping_method']),
             'Comments':    '',
             'FirstName':   order['shipping_firstname'],
             'LastName':    order['shipping_lastname'],
@@ -68,7 +70,7 @@ class Bundler:
             'Email':       order['email'],
         }
 
-    def map_ship(self, method: str) -> str:
+    def __map_ship(self, method: str) -> str:
         for lhs, rhs in self.shipping.items():
             if re.match(lhs, method):
                 return rhs
@@ -78,20 +80,20 @@ class Bundler:
               'Address1', 'Address2', 'City', 'State', 'Zip', 'Phone', 'Email', 'itemid',
               'numitems']
 
-    def write_csv(self, orders: List[dict]) -> List[dict]:
+    def write_csv(self, orders: List[OrderInfo]) -> List[OrderInfo]:
         with open(self.filename, 'w', newline='') as output:
             writer = csv.DictWriter(output, fieldnames=self.FIELDS, quoting=csv.QUOTE_NONNUMERIC)
             writer.writeheader()
             for order in orders:
-                order_info = self.map_order(order)
+                order_info = self.__map_order(order)
                 items = self.bundle_order_items(self.db.get_order_contents(order['order_id']))
-                Database.set_order_status(order, Database.STATUS_COMPLETE if len(
-                    items) == 0 else Database.STATUS_PROCESSED)
+                Database.set_order_status(order, OrderStatus.COMPLETE if len(
+                    items) == 0 else OrderStatus.PROCESSED)
                 for sku, qty in items.items():
                     writer.writerow({**order_info, 'itemid': sku, 'numitems': qty})
             return orders
 
-    def update_orders(self, orders: List[dict]) -> None:
+    def update_orders(self, orders: List[OrderInfo]) -> None:
         for order in orders:
             self.db.update_order(order)
 
