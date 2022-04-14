@@ -77,7 +77,7 @@ class Database:
         return self.cursor.fetchone()
 
     def get_orders_with_status(self, status: OrderStatus) -> List[OrderInfo]:
-        self.cursor.execute(self.SELECT_ORDERS_QUERY, (status,))
+        self.cursor.execute(self.SELECT_ORDERS_QUERY, (int(status),))
         return self.cursor.fetchall()
 
     def get_code_for_state(self, abbr: str, country=COUNTRY_ID_US) -> Optional[ZoneInfo]:
@@ -112,7 +112,7 @@ class Database:
 
     @staticmethod
     def set_order_status(order: OrderInfo, status: OrderStatus) -> OrderInfo:
-        order['order_status_id'] = status
+        order['order_status_id'] = int(status)
         return order
 
     def update_order(self, order: OrderInfo) -> None:
