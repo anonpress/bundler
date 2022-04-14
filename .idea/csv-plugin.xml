@@ -10,6 +10,13 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="/uploaded/2022-04-10 1707.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
       </map>
     </option>
   </component>

@@ -13,9 +13,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from enum import IntEnum
-from typing import List, Dict, Union, Optional
+from typing import List, Dict, Union, Optional, Set
 
 import mysql.connector
+from mysql.connector import DatabaseError
 
 from address import Address
 
@@ -79,8 +80,8 @@ class Database:
         self.cursor.execute(self.SELECT_ORDERS_QUERY, (status,))
         return self.cursor.fetchall()
 
-    def get_code_for_state(self, abbr: str) -> Optional[ZoneInfo]:
-        self.cursor.execute(self.SELECT_STATE_QUERY, (Database.COUNTRY_ID_US, abbr))
+    def get_code_for_state(self, abbr: str, country=COUNTRY_ID_US) -> Optional[ZoneInfo]:
+        self.cursor.execute(self.SELECT_STATE_QUERY, (country, abbr))
         return self.cursor.fetchone()
 
     def get_order_contents(self, order_id: int) -> Items:
@@ -115,7 +116,24 @@ class Database:
         return order
 
     def update_order(self, order: OrderInfo) -> None:
+        try:
+            self.cursor.execute(
+                f"UPDATE oc_order SET {', '.join(f'`{k}`=%s' for k in order if k != 'shipping_state')}"
+                ' WHERE order_id=%s',
+                [*[v for k, v in order.items() if k != 'shipping_state'], order['order_id']])
+        except DatabaseError as err:
+            print(f'Warning updating order {order["order_id"]}: {err.msg}')
+
+    def customer_ids(self) -> Set[int]:
+        self.cursor.execute('SELECT customer_id FROM oc_customer')
+        return {customer['customer_id'] for customer in self.cursor.fetchall()}
+
+    def order_ids(self) -> Set[int]:
+        self.cursor.execute('SELECT order_id FROM oc_order')
+        return {order['order_id'] for order in self.cursor.fetchall()}
+
+    def get_country(self, country_code: str) -> ZoneInfo:
         self.cursor.execute(
-            f"UPDATE oc_order SET {', '.join(f'`{k}`=%s' for k in order if k != 'shipping_state')}"
-            ' WHERE order_id=%s',
-            [*[v for k, v in order.items() if k != 'shipping_state'], order['order_id']])
+            'SELECT country_id AS zone_id, name FROM oc_country WHERE iso_code_2 = %s',
+            (country_code,))
+        return self.cursor.fetchone()
