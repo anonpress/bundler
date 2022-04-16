@@ -74,7 +74,7 @@ class Bundler:
         for lhs, rhs in self.shipping.items():
             if re.match(lhs, method):
                 return rhs
-        return method
+        raise ValueError("Shipping method not found")
 
     FIELDS = ['OrderNumber', 'ShipMethod', 'Comments', 'FirstName', 'LastName', 'Company',
               'Address1', 'Address2', 'City', 'State', 'Zip', 'Phone', 'Email', 'itemid',
@@ -85,12 +85,16 @@ class Bundler:
             writer = csv.DictWriter(output, fieldnames=self.FIELDS, quoting=csv.QUOTE_NONNUMERIC)
             writer.writeheader()
             for order in orders:
-                order_info = self.__map_order(order)
-                items = self.bundle_order_items(self.db.get_order_contents(order['order_id']))
-                Database.set_order_status(order, OrderStatus.COMPLETE if len(
-                    items) == 0 else OrderStatus.PROCESSED)
-                for sku, qty in items.items():
-                    writer.writerow({**order_info, 'itemid': sku, 'numitems': qty})
+                try:
+                    order_info = self.__map_order(order)
+                    items = self.bundle_order_items(self.db.get_order_contents(order['order_id']))
+                    Database.set_order_status(order, OrderStatus.COMPLETE if len(
+                        items) == 0 else OrderStatus.PROCESSED)
+                    for sku, qty in items.items():
+                        writer.writerow({**order_info, 'itemid': sku, 'numitems': qty})
+                except Exception as e:
+                    print(e)
+                    continue
             return orders
 
     def update_orders(self, orders: List[OrderInfo]) -> None:
