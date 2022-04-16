@@ -13,9 +13,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import ftplib
+import re
 from typing import NamedTuple
 
-from opencart_db import Database, Items, OrderInfo
+from opencart_db import Database, Items, OrderInfo, OrderStatus
 
 
 class Shipment(NamedTuple):
@@ -30,15 +31,42 @@ class Tracking:
         self.ftp = ftplib.FTP(ftp_host, ftp_user, ftp_pass)
         self.ftp.cwd(ftp_path)
 
+    tracking_regex = re.compile(r'^\d[A-Z0-9]+ - ((\d+ [^\s]+(, )?)+)$')
+    item_regex = re.compile(r'^(\d+) ([^\s]+)$')
+
     def add_shipment_to_order(self, shipment: Shipment) -> None:
         order = self.db.get_order(shipment.order_id)
         order['comment'] = self.add_shipment_to_comment(order['comment'], shipment)
+        if self.is_fully_shipped(order):
+            order = self.db.set_order_status(order, OrderStatus.SHIPPED)
         self.db.update_order(order)
 
     def add_shipment_to_comment(self, comment: str, shipment: Shipment) -> str:
-        # TODO
-        return comment
+        def items_string(items: Items):
+            return ', '.join(f'{qty} {sku}' for sku, qty in items.items())
 
-    def is_fully_shipped(self, order: OrderInfo, shipment: Shipment) -> bool:
-        # TODO
+        return comment + '\n' + f'{shipment.tracking_number} - {items_string(shipment.contents)}'
+
+    def is_fully_shipped(self, order: OrderInfo) -> bool:
+        # Parse tracking lines from comment
+        shipped_items: Items = {}
+        for line in order['comment']:
+            try:
+                match = self.tracking_regex.search(line)
+                contents = match.group(1).split(', ')
+                for content in contents:
+                    item = self.item_regex.search(content)
+                    if item.group(1) not in shipped_items:
+                        shipped_items[item.group(1)] = 0
+                    shipped_items[item.group(1)] += int(item.group(2))
+            except:
+                continue
+        order_items = self.db.get_order_contents(order['order_id'])
+        for order_sku, order_qty in order_items.items():
+            if order_sku in ['E', 'e-AA', 'DO', 'DN', 'EPUB', '0', '']:
+                # These items do not require shipping.
+                # TODO: Could get this from the database
+                continue
+            if shipped_items[order_sku] < order_qty:
+                return False
         return True
