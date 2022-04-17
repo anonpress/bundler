@@ -44,6 +44,8 @@ class Bundler:
     def bundle_order_items(self, items: Items) -> Items:
         bundled = {}
         for sku, qty in items.items():
+            if sku in Config.ignore:
+                continue
             for bundle_qty, bundle_sku in self.bundles.get(sku, {}).items():
                 bundles_to_add = qty // bundle_qty
                 if bundles_to_add > 0:
