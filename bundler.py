@@ -74,7 +74,7 @@ class Bundler:
         for lhs, rhs in self.shipping.items():
             if re.match(lhs, method):
                 return rhs
-        raise ValueError("Shipping method not found")
+        return method
 
     FIELDS = ['OrderNumber', 'ShipMethod', 'Comments', 'FirstName', 'LastName', 'Company',
               'Address1', 'Address2', 'City', 'State', 'Zip', 'Phone', 'Email', 'itemid',
