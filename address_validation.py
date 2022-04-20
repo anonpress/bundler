@@ -87,7 +87,7 @@ class Validator:
 def main():
     db = Database(Config.db_host, Config.db_user, Config.db_pass, Config.db_name)
     v = Validator(Config.usps_user)
-    orders = db.get_orders_with_status(OrderStatus.PENDING)
+    orders = db.get_orders_with_status(OrderStatus.PROCESSING)
     addresses = v.validate([db.get_order_address(order) for order in orders])
     for order, address in zip(orders, addresses):
         if address is not None:

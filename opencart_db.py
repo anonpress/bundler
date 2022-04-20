@@ -32,6 +32,7 @@ class OrderStatus(IntEnum):
     COMPLETE = 5
     VALIDATED = 17
     FAILED = 18
+    PROCESSING = 2
 
 
 class Database:

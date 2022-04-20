@@ -145,7 +145,7 @@ class Migration:
     }
 
     order_status_map: Dict[str, int] = {
-        '1':  OrderStatus.PENDING,
+        '1':  OrderStatus.PROCESSING,
         '4':  OrderStatus.SHIPPED,
         '6':  OrderStatus.PROCESSED,
         '11': 14,
