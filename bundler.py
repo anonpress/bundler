@@ -76,6 +76,8 @@ class Bundler:
         for lhs, rhs in self.shipping.items():
             if re.match(lhs, method):
                 return rhs
+        if method.startswith('HIDDEN'):
+            return method[7:].lstrip('-').lstrip()
         return method
 
     FIELDS = ['OrderNumber', 'ShipMethod', 'Comments', 'FirstName', 'LastName', 'Company',
