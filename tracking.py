@@ -38,7 +38,8 @@ class Tracking:
         order = self.db.get_order(shipment.order_id)
         order['comment'] = self.add_shipment_to_comment(order['comment'], shipment)
         if self.is_fully_shipped(order):
-            order = self.db.set_order_status(order, OrderStatus.SHIPPED)
+            order = self.db.set_order_status(order, OrderStatus.SHIPPED if self.db.get_order_status(
+                order) == OrderStatus.PROCESSED else OrderStatus.SHIPPED_UNPAID)
         self.db.update_order(order)
 
     def add_shipment_to_comment(self, comment: str, shipment: Shipment) -> str:

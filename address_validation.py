@@ -87,14 +87,19 @@ class Validator:
 def main():
     db = Database(Config.db_host, Config.db_user, Config.db_pass, Config.db_name)
     v = Validator(Config.usps_user)
-    orders = db.get_orders_with_status(OrderStatus.PROCESSING)
+    orders = db.get_orders_with_status(OrderStatus.PROCESSING, OrderStatus.PROCESSING_UNPAID)
     addresses = v.validate([db.get_order_address(order) for order in orders])
     for order, address in zip(orders, addresses):
         if address is not None:
             db.set_order_address(order, address)
-        order = db.set_order_status(order,
-                                    OrderStatus.FAILED if address is None
-                                    else OrderStatus.VALIDATED)
+        if db.get_order_status(order) == OrderStatus.PROCESSING:
+            order = db.set_order_status(order,
+                                        OrderStatus.FAILED if address is None
+                                        else OrderStatus.VALIDATED)
+        elif db.get_order_status(order) == OrderStatus.PROCESSING_UNPAID:
+            order = db.set_order_status(order,
+                                        OrderStatus.FAILED_UNPAID if address is None
+                                        else OrderStatus.VALIDATED_UNPAID)
         db.update_order(order)
 
 

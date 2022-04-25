@@ -39,7 +39,7 @@ class Bundler:
         self.ftp.quit()
 
     def get_orders(self) -> List[OrderInfo]:
-        return self.db.get_orders_with_status(OrderStatus.VALIDATED)
+        return self.db.get_orders_with_status(OrderStatus.VALIDATED, OrderStatus.VALIDATED_UNPAID)
 
     def bundle_order_items(self, items: Items) -> Items:
         bundled = {}
@@ -92,8 +92,11 @@ class Bundler:
                 try:
                     order_info = self.__map_order(order)
                     items = self.bundle_order_items(self.db.get_order_contents(order['order_id']))
-                    Database.set_order_status(order, OrderStatus.COMPLETE if len(
-                        items) == 0 else OrderStatus.PROCESSED)
+                    if Database.get_order_status(order) == OrderStatus.VALIDATED:
+                        Database.set_order_status(order, OrderStatus.COMPLETE if len(
+                            items) == 0 else OrderStatus.PROCESSED)
+                    elif Database.get_order_status(order) == OrderStatus.VALIDATED_UNPAID:
+                        Database.set_order_status(order, OrderStatus.PROCESSED_UNPAID)
                     for sku, qty in items.items():
                         writer.writerow({**order_info, 'itemid': sku, 'numitems': qty})
                 except Exception as e:

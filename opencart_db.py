@@ -33,6 +33,11 @@ class OrderStatus(IntEnum):
     VALIDATED = 17
     FAILED = 18
     PROCESSING = 2
+    VALIDATED_UNPAID = 22
+    PROCESSING_UNPAID = 21
+    FAILED_UNPAID = 23
+    SHIPPED_UNPAID = 19
+    PROCESSED_UNPAID = 20
 
 
 class Database:
@@ -77,9 +82,12 @@ class Database:
         self.cursor.execute(self.SELECT_ORDER_QUERY, (order_id,))
         return self.cursor.fetchone()
 
-    def get_orders_with_status(self, status: OrderStatus) -> List[OrderInfo]:
-        self.cursor.execute(self.SELECT_ORDERS_QUERY, (int(status),))
-        return self.cursor.fetchall()
+    def get_orders_with_status(self, *statuses: OrderStatus) -> List[OrderInfo]:
+        infos = []
+        for status in statuses:
+            self.cursor.execute(self.SELECT_ORDERS_QUERY, (int(status),))
+            infos += self.cursor.fetchall()
+        return infos
 
     def get_code_for_state(self, abbr: str, country=COUNTRY_ID_US) -> Optional[ZoneInfo]:
         self.cursor.execute(self.SELECT_STATE_QUERY, (country, abbr))
@@ -115,6 +123,10 @@ class Database:
     def set_order_status(order: OrderInfo, status: OrderStatus) -> OrderInfo:
         order['order_status_id'] = int(status)
         return order
+
+    @staticmethod
+    def get_order_status(order: OrderInfo) -> OrderStatus:
+        return OrderStatus(order['order_status_id'])
 
     def update_order(self, order: OrderInfo) -> None:
         try:
