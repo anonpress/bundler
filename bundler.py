@@ -74,7 +74,7 @@ class Bundler:
 
     def __map_ship(self, method: str) -> str:
         for lhs, rhs in self.shipping.items():
-            if re.match(lhs, method):
+            if re.match('.*' + lhs, method):
                 return rhs
         if method.startswith('HIDDEN'):
             return method[7:].lstrip('-').lstrip()
