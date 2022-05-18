@@ -86,7 +86,8 @@ class Bundler:
 
     def write_csv(self, orders: List[OrderInfo]) -> List[OrderInfo]:
         with open(self.filename, 'w', newline='') as output:
-            writer = csv.DictWriter(output, fieldnames=self.FIELDS, quoting=csv.QUOTE_NONNUMERIC)
+            writer = csv.DictWriter(output, fieldnames=self.FIELDS, quoting=csv.QUOTE_ALL,
+                                    lineterminator='\n')
             writer.writeheader()
             for order in orders:
                 try:
