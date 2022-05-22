@@ -128,7 +128,9 @@ class Database:
     def get_order_status(order: OrderInfo) -> OrderStatus:
         return OrderStatus(order['order_status_id'])
 
-    def update_order(self, order: OrderInfo) -> None:
+    def update_order(self, order: OrderInfo, dry_run=False) -> None:
+        if dry_run:
+            print(f'Would update order {order["order_id"]} with: {order}')
         try:
             self.cursor.execute(
                 f"UPDATE oc_order SET {', '.join(f'`{k}`=%s' for k in order if k != 'shipping_state')}"

@@ -84,7 +84,7 @@ class Validator:
         return results
 
 
-def main():
+def main(dry_run=False):
     db = Database(Config.db_host, Config.db_user, Config.db_pass, Config.db_name)
     v = Validator(Config.usps_user)
     orders = db.get_orders_with_status(OrderStatus.PROCESSING, OrderStatus.PROCESSING_UNPAID)
@@ -100,8 +100,12 @@ def main():
             order = db.set_order_status(order,
                                         OrderStatus.FAILED_UNPAID if address is None
                                         else OrderStatus.VALIDATED_UNPAID)
-        db.update_order(order)
+        db.update_order(order, dry_run)
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser('Validate addresses in OpenCart database.')
+    parser.add_argument('--dry-run', '-n', action='store_true')
+    args = parser.parse_args()
+    main(args.dry_run)
