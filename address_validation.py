@@ -37,11 +37,14 @@ class Validator:
         :return: A list of validated address, or None for errors.
         """
         results = []
-        # USPS API can only take 5 addresses at a time
-        for i in range(0, len(addresses), 5):
-            xml = self.__build_xml(addresses)
-            res = self.__request(xml)
-            results += self.__parse_response(res)
+        # 1 address at a time in case something goes wrong
+        for i in range(0, len(addresses)):
+            try:
+                xml = self.__build_xml([addresses[i]])
+                res = self.__request(xml)
+                results += self.__parse_response(res)
+            except:
+                results += [None]
         return results
 
     def __build_xml(self, addresses: List[Address]) -> str:
