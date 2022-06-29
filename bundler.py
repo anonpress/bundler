@@ -17,7 +17,7 @@ import ftplib
 import os.path
 import re
 from datetime import datetime
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
 from config import Config
 from opencart_db import Database, OrderStatus, OrderInfo, Items
@@ -84,11 +84,12 @@ class Bundler:
               'Address1', 'Address2', 'City', 'State', 'Zip', 'Phone', 'Email', 'itemid',
               'numitems']
 
-    def write_csv(self, orders: List[OrderInfo]) -> List[OrderInfo]:
+    def write_csv(self, orders: List[OrderInfo]) -> Tuple[List[OrderInfo], int]:
         with open(self.filename, 'w', newline='') as output:
             writer = csv.DictWriter(output, fieldnames=self.FIELDS, quoting=csv.QUOTE_ALL,
                                     lineterminator='\n')
             writer.writeheader()
+            update_count = 0
             for order in orders:
                 try:
                     order_info = self.__map_order(order)
@@ -96,14 +97,16 @@ class Bundler:
                     if Database.get_order_status(order) == OrderStatus.VALIDATED:
                         Database.set_order_status(order, OrderStatus.COMPLETE if len(
                             items) == 0 else OrderStatus.PROCESSED)
+                        update_count += 1
                     elif Database.get_order_status(order) == OrderStatus.VALIDATED_UNPAID:
                         Database.set_order_status(order, OrderStatus.PROCESSED_UNPAID)
+                        update_count += 1
                     for sku, qty in items.items():
                         writer.writerow({**order_info, 'itemid': sku, 'numitems': qty})
                 except Exception as e:
                     print(e)
                     continue
-            return orders
+            return orders, update_count
 
     def update_orders(self, orders: List[OrderInfo]) -> None:
         for order in orders:
@@ -119,7 +122,11 @@ def main():
                 Config.ftp_host, Config.ftp_user, Config.ftp_pass, Config.ftp_incoming,
                 Config.bundles, Config.shipping,
                 filename=datetime.now().strftime('uploaded/%Y-%m-%d_%H%M%z.csv'))
-    orders = b.write_csv(b.get_orders())
+    orders, update_count = b.write_csv(b.get_orders())
+    if update_count < 2:
+        # Files containing no orders are pointless, and files containing one order don't get
+        # processed for reasons we haven't yet been able to fathom.
+        return
     b.upload_csv()
     b.update_orders(orders)
 
