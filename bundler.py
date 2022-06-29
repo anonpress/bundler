@@ -89,7 +89,7 @@ class Bundler:
             writer = csv.DictWriter(output, fieldnames=self.FIELDS, quoting=csv.QUOTE_ALL,
                                     lineterminator='\n')
             writer.writeheader()
-            update_count = 0
+            row_count = 0
             for order in orders:
                 try:
                     order_info = self.__map_order(order)
@@ -97,16 +97,15 @@ class Bundler:
                     if Database.get_order_status(order) == OrderStatus.VALIDATED:
                         Database.set_order_status(order, OrderStatus.COMPLETE if len(
                             items) == 0 else OrderStatus.PROCESSED)
-                        update_count += 1
                     elif Database.get_order_status(order) == OrderStatus.VALIDATED_UNPAID:
                         Database.set_order_status(order, OrderStatus.PROCESSED_UNPAID)
-                        update_count += 1
                     for sku, qty in items.items():
                         writer.writerow({**order_info, 'itemid': sku, 'numitems': qty})
+                        row_count += 1
                 except Exception as e:
                     print(e)
                     continue
-            return orders, update_count
+            return orders, row_count
 
     def update_orders(self, orders: List[OrderInfo]) -> None:
         for order in orders:
@@ -122,9 +121,9 @@ def main():
                 Config.ftp_host, Config.ftp_user, Config.ftp_pass, Config.ftp_incoming,
                 Config.bundles, Config.shipping,
                 filename=datetime.now().strftime('uploaded/%Y-%m-%d_%H%M%z.csv'))
-    orders, update_count = b.write_csv(b.get_orders())
-    if update_count < 2:
-        # Files containing no orders are pointless, and files containing one order don't get
+    orders, row_count = b.write_csv(b.get_orders())
+    if row_count < 2:
+        # Files containing no rows are pointless, and files containing one row don't get
         # processed for reasons we haven't yet been able to fathom.
         return
     b.upload_csv()
