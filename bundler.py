@@ -16,6 +16,7 @@ import csv
 import ftplib
 import os.path
 import re
+import unicodedata
 from datetime import datetime
 from typing import List, Dict, Tuple
 
@@ -60,17 +61,21 @@ class Bundler:
             'OrderNumber': order['order_id'],
             'ShipMethod':  self.__map_ship(order['shipping_method']),
             'Comments':    '',
-            'FirstName':   order['shipping_firstname'][:24],
-            'LastName':    order['shipping_lastname'][:24],
-            'Company':     order['shipping_company'][:24],
-            'Address1':    order['shipping_address_1'],
-            'Address2':    order['shipping_address_2'],
-            'City':        order['shipping_city'],
-            'State':       order['shipping_state'],
-            'Zip':         order['shipping_postcode'].replace('-', ''),
-            'Phone':       order['telephone'],
-            'Email':       order['email'],
+            'FirstName':   self.__normalize(order['shipping_firstname']),
+            'LastName':    self.__normalize(order['shipping_lastname']),
+            'Company':     self.__normalize(order['shipping_company']),
+            'Address1':    self.__normalize(order['shipping_address_1']),
+            'Address2':    self.__normalize(order['shipping_address_2']),
+            'City':        self.__normalize(order['shipping_city']),
+            'State':       self.__normalize(order['shipping_state']),
+            'Zip':         self.__normalize(order['shipping_postcode']).replace('-', ''),
+            'Phone':       self.__normalize(order['telephone']),
+            'Email':       self.__normalize(order['email']),
         }
+
+    # WarePak breaks if it receives strings with non-ASCII characters or length > 24. Woo hoo
+    def __normalize(self, input: str) -> str:
+        return unicodedata.normalize('NFKD', input).encode('ASCII', 'ignore').decode()[:24]
 
     def __map_ship(self, method: str) -> str:
         for lhs, rhs in self.shipping.items():
@@ -90,6 +95,7 @@ class Bundler:
                                     lineterminator='\n')
             writer.writeheader()
             row_count = 0
+            processed_orders: List[OrderInfo] = []
             for order in orders:
                 try:
                     order_info = self.__map_order(order)
@@ -102,10 +108,11 @@ class Bundler:
                     for sku, qty in items.items():
                         writer.writerow({**order_info, 'itemid': sku, 'numitems': qty})
                         row_count += 1
+                    processed_orders.append(order)
                 except Exception as e:
                     print(e)
                     continue
-            return orders, row_count
+            return processed_orders, row_count
 
     def update_orders(self, orders: List[OrderInfo]) -> None:
         for order in orders:
