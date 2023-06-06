@@ -61,9 +61,9 @@ class Bundler:
             'OrderNumber': order['order_id'],
             'ShipMethod':  self.__map_ship(order['shipping_method']),
             'Comments':    '',
-            'FirstName':   self.__normalize(order['shipping_firstname']),
-            'LastName':    self.__normalize(order['shipping_lastname']),
-            'Company':     self.__normalize(order['shipping_company']),
+            'FirstName':   self.__normalize(order['shipping_firstname'])[:24],
+            'LastName':    self.__normalize(order['shipping_lastname'])[:24],
+            'Company':     self.__normalize(order['shipping_company'])[:24],
             'Address1':    self.__normalize(order['shipping_address_1']),
             'Address2':    self.__normalize(order['shipping_address_2']),
             'City':        self.__normalize(order['shipping_city']),
@@ -73,9 +73,9 @@ class Bundler:
             'Email':       self.__normalize(order['email']),
         }
 
-    # WarePak breaks if it receives strings with non-ASCII characters or length > 24. Woo hoo
+    # WarePak breaks if it receives strings with non-ASCII characters. Woo hoo
     def __normalize(self, input: str) -> str:
-        return unicodedata.normalize('NFKD', input).encode('ASCII', 'ignore').decode()[:24]
+        return unicodedata.normalize('NFKD', input).encode('ASCII', 'ignore').decode()
 
     def __map_ship(self, method: str) -> str:
         for lhs, rhs in self.shipping.items():
