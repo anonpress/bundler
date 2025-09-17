@@ -99,6 +99,7 @@ class Bundler:
             for order in orders:
                 try:
                     order_info = self.__map_order(order)
+                    print(f'Processing order {order["order_id"]}')
                     items = self.bundle_order_items(self.db.get_order_contents(order['order_id']))
                     if Database.get_order_status(order) == OrderStatus.VALIDATED:
                         Database.set_order_status(order, OrderStatus.COMPLETE if len(
@@ -111,14 +112,17 @@ class Bundler:
                     processed_orders.append(order)
                 except Exception as e:
                     print(e)
-                    continue
+                    raise e
+            print(f'Created file with {len(processed_orders)} orders, {row_count} rows')
             return processed_orders, row_count
 
     def update_orders(self, orders: List[OrderInfo]) -> None:
+        print(f'Updating {len(orders)} orders in OpenCart')
         for order in orders:
             self.db.update_order(order)
 
     def upload_csv(self) -> None:
+        print(f'Uploading file to Warepak')
         with open(self.filename, 'rb') as file:
             self.ftp.storbinary(f'STOR {os.path.basename(self.filename)}', file)
 
@@ -127,7 +131,7 @@ def main():
     b = Bundler(Config.db_host, Config.db_user, Config.db_pass, Config.db_name,
                 Config.ftp_host, Config.ftp_user, Config.ftp_pass, Config.ftp_incoming,
                 Config.bundles, Config.shipping,
-                filename=datetime.now().strftime('uploaded/%Y-%m-%d_%H%M%z.csv'))
+                filename=datetime.now().strftime('%Y-%m-%d_%H%M%z.csv'))
     orders, row_count = b.write_csv(b.get_orders())
     if row_count < 2:
         # Files containing no rows are pointless, and files containing one row don't get
