@@ -1,4 +1,7 @@
 config.php
+config.py
+
+uploaded/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
