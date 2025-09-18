@@ -17,7 +17,10 @@ name: Bundler
 on:
   workflow_dispatch:
   schedule:
-    - cron: "10 12,18 * * *"
+    - cron: "10 13,16,20 * * 1-5"  # Three times a day, Monday through Friday
+    # CST: 07:10, 10:10, 14:10
+    # CDT: 08:10, 11:10, 15:10
+    # UTC: 13:10, 16:10, 20:10
 
 jobs:
   bundler:
