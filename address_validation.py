@@ -12,12 +12,12 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-import xml.etree.ElementTree as et
-from typing import List, Optional
-from xml.sax.saxutils import escape
+import sys
+from typing import List
 
 import requests
+from oauthlib.oauth2 import BackendApplicationClient
+from requests_oauthlib import OAuth2Session
 
 from address import Address
 from config import Config
@@ -25,89 +25,92 @@ from opencart_db import Database, OrderStatus
 
 
 class Validator:
-    def __init__(self, usps_user):
-        self.usps_user = usps_user
+    TOKEN_URL = 'https://apis.usps.com/oauth2/v3/token'
+    ADDRESS_URL = 'https://apis.usps.com/addresses/v3/address'
+    GOOD_MATCH_CODE = '31'
 
-    ENDPOINT = 'https://secure.shippingapis.com/ShippingAPI.dll'
+    def __init__(self, dry_run=False):
+        self.dry_run = dry_run
+        self.client = BackendApplicationClient(client_id=Config.usps_consumer_key)
+        self.usps = OAuth2Session(client=self.client)
+        self.usps.fetch_token(token_url=self.TOKEN_URL, client_id=Config.usps_consumer_key,
+                              client_secret=Config.usps_consumer_secret, include_client_id=True)
 
-    def validate(self, addresses: List[Address]) -> List[Optional[Address]]:
+    def validate(self, addresses: List[Address]) -> List[Address | None]:
         """
         Get the validated address from USPS.
         :param addresses: A list of customer-provided addresses.
         :return: A list of validated address, or None for errors.
         """
-        results = []
-        # 1 address at a time in case something goes wrong
-        for i in range(0, len(addresses)):
-            try:
-                xml = self.__build_xml([addresses[i]])
-                res = self.__request(xml)
-                results += self.__parse_response(res)
-            except:
-                results += [None]
-        return results
+        return [self.__validate(address) for address in addresses]
 
-    def __build_xml(self, addresses: List[Address]) -> str:
-        root = et.Element('AddressValidateRequest')
-        root.set('USERID', self.usps_user)
-        for index, address in enumerate(addresses):
-            a = et.SubElement(root, 'Address')
-            a.set('ID', str(index))
-            # USPS API swaps address 2 and 1 for some reason.
-            et.SubElement(a, 'Address1').text = escape(address.address2.strip())
-            et.SubElement(a, 'Address2').text = escape(address.address1.strip())
-            et.SubElement(a, 'City').text = escape(address.city.strip())
-            et.SubElement(a, 'State').text = escape(address.state.strip())
-            et.SubElement(a, 'Zip5').text = escape(address.zip.strip()[0:5])
-            zip4 = et.SubElement(a, 'Zip4')
-            try:
-                zip4.text = escape(address.zip.strip().split('-')[1])
-            except IndexError:
-                pass
-        return et.tostring(root, encoding='unicode')
+    def __validate(self, address: Address) -> Address | None:
+        if self.dry_run:
+            print(f'Validating address: {address}')
+        try:
+            res = self.usps.get(self.ADDRESS_URL, params={
+                'streetAddress': address.address1,
+                'secondaryAddress': address.address2,
+                'city': address.city,
+                'state': address.state,
+                'ZIPCode': address.zip[0:5],
+            }, headers={
+                'Accept': 'application/json',
+            })
+            if res.status_code != 200:
+                print(f'non-200 response: {res}', file=sys.stderr)
+                return None
+            json = res.json()
+            if self.dry_run:
+                print(f'Response from USPS: {json}')
+        except requests.exceptions.RequestException as e:
+            print(f'Request exception: {e}', file=sys.stderr)
+            return None
 
-    @staticmethod
-    def __request(xml: str) -> str:
-        query = {'API': 'Verify', 'XML': xml}
-        return requests.get(Validator.ENDPOINT, params=query).text
+        if any(match['code'] == self.GOOD_MATCH_CODE for match in json['matches']):
+            return Address(
+                json['address']['streetAddress'] or json['address']['streetAddress'],
+                json['address']['secondaryAddress'] or json['address']['urbanization'],
+                json['address']['cityAbbreviation'] or json['address']['city'],
+                json['address']['state'],
+                f'{json['address']['ZIPCode']}-{json['address']['ZIPPlus4']}' if json['address']['ZIPPlus4'] else
+                json['address']['ZIPCode']
+            )
 
-    @staticmethod
-    def __parse_response(xml: str) -> List[Optional[Address]]:
-        results = []
-        for result in et.fromstring(xml):
-            r = {e.tag: e.text for e in result}
-            index = int(result.get('ID'))
-            try:
-                results.insert(index,
-                               Address(r['Address2'], r.get('Address1', ''), r['City'], r['State'],
-                                       f"{r['Zip5']}-{r['Zip4']}" if len(r['Zip4']) == 4
-                                       else r['Zip5']))
-            except KeyError:
-                results.insert(index, None)
-        return results
+        print(json['corrections'], file=sys.stderr)
+        return None
 
 
 def main(dry_run=False):
     db = Database(Config.db_host, Config.db_user, Config.db_pass, Config.db_name)
-    v = Validator(Config.usps_user)
-    orders = db.get_orders_with_status(OrderStatus.PROCESSING, OrderStatus.PROCESSING_UNPAID)
+    v = Validator(dry_run)
+    orders = db.get_orders_with_status(OrderStatus.PROCESSING, OrderStatus.PROCESSING_UNPAID, OrderStatus.FAILED, OrderStatus.FAILED_UNPAID)
     addresses = v.validate([db.get_order_address(order) for order in orders])
+    is_good = True
     for order, address in zip(orders, addresses):
+        order_status = db.get_order_status(order)
+        if address is None and order_status not in (OrderStatus.FAILED, OrderStatus.FAILED_UNPAID):
+            is_good = False
         if address is not None:
+            if dry_run:
+                print(f'Validated address: {address}')
             db.set_order_address(order, address)
-        if db.get_order_status(order) == OrderStatus.PROCESSING:
+        if order_status in (OrderStatus.PROCESSING, OrderStatus.FAILED):
             order = db.set_order_status(order,
                                         OrderStatus.FAILED if address is None
                                         else OrderStatus.VALIDATED)
-        elif db.get_order_status(order) == OrderStatus.PROCESSING_UNPAID:
+        elif order_status in (OrderStatus.PROCESSING_UNPAID, OrderStatus.FAILED_UNPAID):
             order = db.set_order_status(order,
                                         OrderStatus.FAILED_UNPAID if address is None
                                         else OrderStatus.VALIDATED_UNPAID)
         db.update_order(order, dry_run)
+    if not is_good:
+        exit(1337)
 
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser('Validate addresses in OpenCart database.')
     parser.add_argument('--dry-run', '-n', action='store_true')
     args = parser.parse_args()

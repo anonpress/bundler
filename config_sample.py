@@ -14,7 +14,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 class Config:
-    usps_user = '000AAAAA0000'
+    usps_consumer_key = 'foo'
+    usps_consumer_secret = 'bar'
     db_host = 'mysql.example.com'
     db_user = 'store'
     db_pass = 'passw0rd'

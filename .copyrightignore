@@ -17,6 +17,7 @@ Pipfile
 Pipfile.lock
 /.idea
 *.iml
+requirements.txt
 
 # Files that don't support comments
 .python-version
