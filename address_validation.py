@@ -49,11 +49,11 @@ class Validator:
             print(f'Validating address: {address}')
         try:
             res = self.usps.get(self.ADDRESS_URL, params={
-                'streetAddress': address.address1,
-                'secondaryAddress': address.address2,
-                'city': address.city,
-                'state': address.state,
-                'ZIPCode': address.zip[0:5],
+                'streetAddress': address.address1.strip(),
+                'secondaryAddress': address.address2.strip(),
+                'city': address.city.strip(),
+                'state': address.state.strip(),
+                'ZIPCode': address.zip.strip()[0:5],
             }, headers={
                 'Accept': 'application/json',
             })
@@ -88,6 +88,7 @@ def main(dry_run=False):
     addresses = v.validate([db.get_order_address(order) for order in orders])
     is_good = True
     for order, address in zip(orders, addresses):
+        print(f'Order {order['order_id']}: address {'NOT ' if address is None else ''} validated')
         order_status = db.get_order_status(order)
         if address is None and order_status not in (OrderStatus.FAILED, OrderStatus.FAILED_UNPAID):
             is_good = False
