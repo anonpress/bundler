@@ -40,3 +40,4 @@ jobs:
           EOF
       - run: pipenv run python address_validation.py
       - run: pipenv run python bundler.py
+        if: '!cancelled()'
