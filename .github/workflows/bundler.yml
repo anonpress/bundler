@@ -17,8 +17,8 @@ name: Bundler
 on:
   workflow_dispatch:
   schedule:
-    - cron: "10 10 * * *" 
-    # For whatever reason, that seems to be set in UTC-2, so this is 12:10 UTC = 06:10 CST = 07:10 CDT
+    - cron: "10 9 * * *" 
+    # For whatever reason, that seems to be set in UTC-2, so this is 11:10 UTC = 05:10 CST = 06:10 CDT
 
 jobs:
   bundler:
