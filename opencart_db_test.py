@@ -16,7 +16,7 @@ import re
 import unittest
 from unittest.mock import patch, MagicMock
 
-from address_validation import Address
+from address import Address
 from opencart_db import Database, OrderStatus
 
 address_before = Address('Address 2-1', 'Address 2-2', 'City 2', 'GA', '10101')
