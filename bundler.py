@@ -40,7 +40,8 @@ class Bundler:
         self.ftp.quit()
 
     def get_orders(self) -> List[OrderInfo]:
-        return self.db.get_orders_with_status(OrderStatus.PROCESSING)
+        return self.db.get_orders_with_status(OrderStatus.PAID_WILL_SHIP, OrderStatus.PAID_VALIDATED_WILL_SHIP,
+                                              OrderStatus.UNPAID_WILL_SHIP, OrderStatus.UNPAID_VALIDATED_WILL_SHIP)
 
     def bundle_order_items(self, items: Items) -> Items:
         bundled = {}
@@ -59,18 +60,18 @@ class Bundler:
     def __map_order(self, order: OrderInfo) -> CsvRow:
         return {
             'OrderNumber': order['order_id'],
-            'ShipMethod':  self.__map_ship(order['shipping_method']),
-            'Comments':    '',
-            'FirstName':   self.__normalize(order['shipping_firstname'])[:24],
-            'LastName':    self.__normalize(order['shipping_lastname'])[:24],
-            'Company':     self.__normalize(order['shipping_company'])[:24],
-            'Address1':    self.__normalize(order['shipping_address_1']),
-            'Address2':    self.__normalize(order['shipping_address_2']),
-            'City':        self.__normalize(order['shipping_city']),
-            'State':       self.__normalize(order['shipping_state']),
-            'Zip':         self.__normalize(order['shipping_postcode']).replace('-', ''),
-            'Phone':       self.__normalize(order['telephone']),
-            'Email':       self.__normalize(order['email']),
+            'ShipMethod': self.__map_ship(order['shipping_method']),
+            'Comments': '',
+            'FirstName': self.__normalize(order['shipping_firstname'])[:24],
+            'LastName': self.__normalize(order['shipping_lastname'])[:24],
+            'Company': self.__normalize(order['shipping_company'])[:24],
+            'Address1': self.__normalize(order['shipping_address_1']),
+            'Address2': self.__normalize(order['shipping_address_2']),
+            'City': self.__normalize(order['shipping_city']),
+            'State': self.__normalize(order['shipping_state']),
+            'Zip': self.__normalize(order['shipping_postcode']).replace('-', ''),
+            'Phone': self.__normalize(order['telephone']),
+            'Email': self.__normalize(order['email']),
         }
 
     # WarePak breaks if it receives strings with non-ASCII characters. Woo hoo
@@ -101,11 +102,13 @@ class Bundler:
                     order_info = self.__map_order(order)
                     print(f'Processing order {order["order_id"]}')
                     items = self.bundle_order_items(self.db.get_order_contents(order['order_id']))
-                    if Database.get_order_status(order) == OrderStatus.PROCESSING:
+                    if Database.get_order_status(order) in (
+                    OrderStatus.PAID_WILL_SHIP, OrderStatus.PAID_VALIDATED_WILL_SHIP):
                         Database.set_order_status(order, OrderStatus.COMPLETE if len(
-                            items) == 0 else OrderStatus.PROCESSED)
-                    elif Database.get_order_status(order) == OrderStatus.PROCESSING_UNPAID:
-                        Database.set_order_status(order, OrderStatus.PROCESSED_UNPAID)
+                            items) == 0 else OrderStatus.PAID_SENT_TO_WAREPAK)
+                    elif Database.get_order_status(order) in (
+                    OrderStatus.UNPAID_WILL_SHIP, OrderStatus.UNPAID_VALIDATED_WILL_SHIP):
+                        Database.set_order_status(order, OrderStatus.UNPAID_SENT_TO_WAREPAK)
                     for sku, qty in items.items():
                         writer.writerow({**order_info, 'itemid': sku, 'numitems': qty})
                         row_count += 1
