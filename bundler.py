@@ -75,8 +75,8 @@ class Bundler:
         }
 
     # WarePak breaks if it receives strings with non-ASCII characters. Woo hoo
-    def __normalize(self, input: str) -> str:
-        return unicodedata.normalize('NFKD', input).encode('ASCII', 'ignore').decode()
+    def __normalize(self, input: str|None) -> str:
+        return unicodedata.normalize('NFKD', input or '').encode('ASCII', 'ignore').decode()
 
     def __map_ship(self, method: str) -> str:
         for lhs, rhs in self.shipping.items():
